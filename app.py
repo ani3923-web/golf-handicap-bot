@@ -38,6 +38,7 @@ def webhook():
 def submit_score():
     data       = request.json
     user_id    = data.get('userId')
+    user_name  = data.get('userName')
     user_id_tmp = data.get('userId')
     group_id  = data.get('groupId') or group_id_cache.get(user_id_tmp, '') or DEFAULT_GROUP_ID
  
