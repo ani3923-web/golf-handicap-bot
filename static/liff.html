@@ -85,7 +85,7 @@
         userId = profile.userId;
         userName = profile.displayName;
         const ctx = liff.getContext();
-        groupId = ctx.groupId || '';
+       groupId = (ctx && ctx.groupId) ? ctx.groupId : '';
       });
 
     async function submitScore() {
