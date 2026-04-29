@@ -18,7 +18,7 @@ LIFF_ID                   = os.environ.get('LIFF_ID', '')
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler      = WebhookHandler(LINE_CHANNEL_SECRET)
 hc_manager   = HandicapManager('data/scores.json')
-
+group_id_cache = {}
 @app.route('/liff')
 def liff_page():
     return send_from_directory('static', 'liff.html')
@@ -38,7 +38,8 @@ def submit_score():
     data       = request.json
     user_id    = data.get('userId')
     user_name  = data.get('userName')
-    group_id  = data.get('groupId') or 'Cec1941de673a9d1475a674e5461c6332'
+  user_id_tmp = data.get('userId')
+group_id  = data.get('groupId') or group_id_cache.get(user_id_tmp, '')
     score      = int(data.get('score'))
     cr         = float(data.get('cr'))
     course     = data.get('course')
@@ -53,9 +54,11 @@ def submit_score():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text     = event.message.text.strip()
-    group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
-    print(f"DEBUG group_id: {group_id}")
-    if text == 'ランキング' and group_id:
+   group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
+        print(f"DEBUG group_id: {group_id}")
+        if group_id:
+            group_id_cache[event.source.user_id] = group_id
+        if text == 'ランキング' and group_id:
         msg = hc_manager.get_ranking_message()
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
 
