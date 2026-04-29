@@ -62,7 +62,10 @@ def handle_message(event):
             group_id_cache[event.source.user_id] = group_id
         if text == 'ランキング' and group_id:
             msg = hc_manager.get_ranking_message()
+            liff_url = f"https://liff.line.me/2009932306-VST4Bmqj?groupId={group_id}"
+            msg2 = f"スコア入力はこちら：{liff_url}"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
+            line_bot_api.push_message(group_id, TextSendMessage(text=msg2))
 @handler.add(MemberJoinedEvent)
 def handle_member_join(event):
     group_id = event.source.group_id
