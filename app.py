@@ -53,15 +53,14 @@ def submit_score():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    text     = event.message.text.strip()
-   　　group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
+        text     = event.message.text.strip()
+        group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
         print(f"DEBUG group_id: {group_id}")
         if group_id:
             group_id_cache[event.source.user_id] = group_id
         if text == 'ランキング' and group_id:
-        msg = hc_manager.get_ranking_message()
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
-
+            msg = hc_manager.get_ranking_message()
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
 @handler.add(MemberJoinedEvent)
 def handle_member_join(event):
     group_id = event.source.group_id
