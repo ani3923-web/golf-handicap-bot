@@ -1,3 +1,1 @@
-flask==3.0.3
-line-bot-sdk==3.11.0
-gunicorn==22.0.0
+web: gunicorn app:app
