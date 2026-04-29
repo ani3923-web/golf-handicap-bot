@@ -19,6 +19,7 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler      = WebhookHandler(LINE_CHANNEL_SECRET)
 hc_manager   = HandicapManager('data/scores.json')
 group_id_cache = {}
+DEFAULT_GROUP_ID = os.environ.get('GROUP_ID', '')
 @app.route('/liff')
 def liff_page():
     return send_from_directory('static', 'liff.html')
@@ -38,7 +39,7 @@ def submit_score():
     data       = request.json
     user_id    = data.get('userId')
     user_name  = data.get('userName')
-    user_id_tmp = data.get('userId')
+    group_id  = data.get('groupId') or group_id_cache.get(user_id_tmp, '') or DEFAULT_GROUP_ID
     group_id  = data.get('groupId') or group_id_cache.get(user_id_tmp, '')   
     score      = int(data.get('score'))
     cr         = float(data.get('cr'))
