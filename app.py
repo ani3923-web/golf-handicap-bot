@@ -38,7 +38,7 @@ def submit_score():
     data       = request.json
     user_id    = data.get('userId')
     user_name  = data.get('userName')
-    group_id   = data.get('groupId')
+    group_id  = data.get('groupId') or 'Cec1941de673a9d1475a674e5461c6332'
     score      = int(data.get('score'))
     cr         = float(data.get('cr'))
     course     = data.get('course')
