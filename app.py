@@ -54,6 +54,7 @@ def submit_score():
 def handle_message(event):
     text     = event.message.text.strip()
     group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
+    print(f"DEBUG group_id: {group_id}")
     if text == 'ランキング' and group_id:
         msg = hc_manager.get_ranking_message()
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
