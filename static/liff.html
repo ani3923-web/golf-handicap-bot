@@ -85,7 +85,8 @@
         userId = profile.userId;
         userName = profile.displayName;
         const ctx = liff.getContext();
-       groupId = (ctx && ctx.groupId) ? ctx.groupId : '';
+       const urlParams = new URLSearchParams(window.location.search);
+        groupId = urlParams.get('groupId') || (ctx && ctx.groupId) ? (urlParams.get('groupId') || ctx.groupId) : '';
       });
 
     async function submitScore() {
