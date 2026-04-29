@@ -54,7 +54,7 @@ def submit_score():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text     = event.message.text.strip()
-   group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
+   　　group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
         print(f"DEBUG group_id: {group_id}")
         if group_id:
             group_id_cache[event.source.user_id] = group_id
