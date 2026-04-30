@@ -1,23 +1,16 @@
-import json
 import os
 from datetime import datetime
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
 class HandicapManager:
-    def __init__(self, data_file: str):
-        self.data_file = data_file
-        os.makedirs(os.path.dirname(data_file), exist_ok=True)
-        self.data = self._load()
+    def __init__(self):
+        self.conn = psycopg2.connect(os.environ['DATABASE_URL'])
+        self.conn.autocommit = True
 
-    def _load(self) -> dict:
-        if os.path.exists(self.data_file):
-            with open(self.data_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {}
-
-    def _save(self):
-        with open(self.data_file, 'w', encoding='utf-8') as f:
-            json.dump(self.data, f, ensure_ascii=False, indent=2)
+    def _get_cursor(self):
+        return self.conn.cursor(cursor_factory=RealDictCursor)
 
     def _calc_hdcp(self, scores: list) -> float:
         recent = scores[-20:]
@@ -26,23 +19,23 @@ class HandicapManager:
         hdcp   = (sum(best8) / len(best8)) * 0.96
         return round(hdcp, 1)
 
-    def add_score(self, user_id: str, user_name: str,
+    def add_score(self, group_id: str, user_id: str, user_name: str,
                   score: int, cr: float, course: str) -> dict:
-        if user_id not in self.data:
-            self.data[user_id] = {'name': user_name, 'scores': []}
-        self.data[user_id]['name'] = user_name
-        entry = {
-            'score':  score,
-            'cr':     cr,
-            'course': course,
-            'date':   datetime.now().strftime('%Y-%m-%d')
-        }
-        self.data[user_id]['scores'].append(entry)
-        self._save()
-        scores_list = self.data[user_id]['scores']
-        hdcp        = self._calc_hdcp(scores_list)
-        diff        = score - cr
-        rounds      = len(scores_list)
+        date = datetime.now().strftime('%Y-%m-%d')
+        with self._get_cursor() as cur:
+            cur.execute(
+                """INSERT INTO scores (group_id, user_id, display_name, score, cr, course, date)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (group_id, user_id, user_name, score, cr, course, date)
+            )
+            cur.execute(
+                "SELECT score, cr FROM scores WHERE group_id=%s AND user_id=%s ORDER BY created_at",
+                (group_id, user_id)
+            )
+            rows = cur.fetchall()
+        hdcp   = self._calc_hdcp(rows)
+        diff   = score - cr
+        rounds = len(rows)
         diff_str = f'+{diff:.1f}' if diff >= 0 else f'{diff:.1f}'
         personal_message = (
             f"【スコア登録完了】\n"
@@ -53,15 +46,26 @@ class HandicapManager:
         )
         return {'hdcp': hdcp, 'personal_message': personal_message}
 
-    def get_ranking_message(self) -> str:
-        if not self.data:
+    def get_ranking_message(self, group_id: str) -> str:
+        with self._get_cursor() as cur:
+            cur.execute(
+                "SELECT user_id, display_name, score, cr FROM scores WHERE group_id=%s ORDER BY created_at",
+                (group_id,)
+            )
+            rows = cur.fetchall()
+        if not rows:
             return "まだスコアが登録されていません。"
+        users = {}
+        for row in rows:
+            uid = row['user_id']
+            if uid not in users:
+                users[uid] = {'name': row['display_name'], 'scores': []}
+            users[uid]['scores'].append({'score': row['score'], 'cr': row['cr']})
         ranking = []
-        for user_id, info in self.data.items():
-            if info['scores']:
-                hdcp   = self._calc_hdcp(info['scores'])
-                rounds = len(info['scores'])
-                ranking.append((info['name'], hdcp, rounds))
+        for uid, info in users.items():
+            hdcp   = self._calc_hdcp(info['scores'])
+            rounds = len(info['scores'])
+            ranking.append((info['name'], hdcp, rounds))
         ranking.sort(key=lambda x: x[1])
         today = datetime.now().strftime('%Y年%m月%d日')
         lines = [f"【ハンディキャップランキング】\n{today}現在\n"]
@@ -71,3 +75,19 @@ class HandicapManager:
             lines.append(f"{medal} {name}　HDCP {hdcp}　({rounds}R)")
         lines.append(f"\n参加人数：{len(ranking)}名")
         return '\n'.join(lines)
+
+    def get_all_scores(self, group_id: str) -> list:
+        with self._get_cursor() as cur:
+            cur.execute(
+                "SELECT id, display_name, score, cr, course, date FROM scores WHERE group_id=%s ORDER BY created_at DESC",
+                (group_id,)
+            )
+            return cur.fetchall()
+
+    def delete_score(self, score_id: int, group_id: str) -> bool:
+        with self._get_cursor() as cur:
+            cur.execute(
+                "DELETE FROM scores WHERE id=%s AND group_id=%s",
+                (score_id, group_id)
+            )
+            return cur.rowcount > 0
