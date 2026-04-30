@@ -48,12 +48,9 @@ def submit_score():
     cr        = float(data.get('cr'))
     course    = data.get('course')
 
-    result = hc_manager.add_score(group_id, user_id, user_name, score, cr, course)
-    messages = [
-        TextSendMessage(text=result['personal_message']),
-        TextSendMessage(text=hc_manager.get_ranking_message(group_id))
-    ]
-    line_bot_api.push_message(group_id, messages)
+    result   = hc_manager.add_score(group_id, user_id, user_name, score, cr, course)
+    combined = result['personal_message'] + '\n\n' + hc_manager.get_ranking_message(group_id)
+    line_bot_api.push_message(group_id, TextSendMessage(text=combined))
     return jsonify({'status': 'ok'})
 
 
