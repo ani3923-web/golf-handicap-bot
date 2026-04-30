@@ -85,9 +85,8 @@ def handle_message(event):
     if text == 'ランキング' and group_id:
         msg      = hc_manager.get_ranking_message(group_id)
         liff_url = f"https://liff.line.me/{LIFF_ID}?groupId={group_id}"
-        msg2     = f"スコア入力はこちら：{liff_url}"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
-        line_bot_api.push_message(group_id, TextSendMessage(text=msg2))
+        combined = msg + f"\n\nスコア入力はこちら：{liff_url}"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=combined))
 
 
 @handler.add(MemberJoinedEvent)
