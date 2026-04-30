@@ -6,7 +6,6 @@ from linebot.models import (
     MemberJoinedEvent
 )
 import os
-import json
 from handicap import HandicapManager
 
 app = Flask(__name__, static_folder='static')
@@ -17,12 +16,16 @@ LIFF_ID                   = os.environ.get('LIFF_ID', '')
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler      = WebhookHandler(LINE_CHANNEL_SECRET)
-hc_manager   = HandicapManager('data/scores.json')
+hc_manager   = HandicapManager()
+
 group_id_cache = {}
 DEFAULT_GROUP_ID = os.environ.get('GROUP_ID', '')
+
+
 @app.route('/liff')
 def liff_page():
     return send_from_directory('static', 'liff.html')
+
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -34,52 +37,74 @@ def webhook():
         return 'Invalid signature', 400
     return 'OK', 200
 
+
 @app.route('/submit_score', methods=['POST'])
 def submit_score():
-    data       = request.json
-    user_id    = data.get('userId')
-    user_name  = data.get('userName')
-    user_id_tmp = data.get('userId')
-    group_id  = data.get('groupId') or group_id_cache.get(user_id_tmp, '') or DEFAULT_GROUP_ID
- 
-    score      = int(data.get('score'))
-    cr         = float(data.get('cr'))
-    course     = data.get('course')
-    result = hc_manager.add_score(user_id, user_name, score, cr, course)
+    data      = request.json
+    user_id   = data.get('userId')
+    user_name = data.get('userName')
+    group_id  = data.get('groupId') or group_id_cache.get(user_id, '') or DEFAULT_GROUP_ID
+    score     = int(data.get('score'))
+    cr        = float(data.get('cr'))
+    course    = data.get('course')
+
+    result = hc_manager.add_score(group_id, user_id, user_name, score, cr, course)
     messages = [
         TextSendMessage(text=result['personal_message']),
-        TextSendMessage(text=hc_manager.get_ranking_message())
+        TextSendMessage(text=hc_manager.get_ranking_message(group_id))
     ]
     line_bot_api.push_message(group_id, messages)
     return jsonify({'status': 'ok'})
+
+
+@app.route('/get_scores', methods=['GET'])
+def get_scores():
+    group_id = request.args.get('groupId', DEFAULT_GROUP_ID)
+    rows = hc_manager.get_all_scores(group_id)
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/delete_score', methods=['POST'])
+def delete_score():
+    data     = request.json
+    score_id = data.get('id')
+    group_id = data.get('groupId', DEFAULT_GROUP_ID)
+    success  = hc_manager.delete_score(score_id, group_id)
+    return jsonify({'status': 'ok' if success else 'not found'})
+
+
 @app.route('/')
 def health():
     return 'OK', 200
 
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-        text     = event.message.text.strip()
-        group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
-        print(f"DEBUG group_id: {group_id}")
-        if group_id:
-            group_id_cache[event.source.user_id] = group_id
-        if text == 'ランキング' and group_id:
-            msg = hc_manager.get_ranking_message()
-            liff_url = f"https://liff.line.me/2009932306-VST4Bmqj?groupId={group_id}"
-            msg2 = f"スコア入力はこちら：{liff_url}"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
-            line_bot_api.push_message(group_id, TextSendMessage(text=msg2))
+    text     = event.message.text.strip()
+    group_id = event.source.group_id if hasattr(event.source, 'group_id') else None
+    print(f"DEBUG group_id: {group_id}")
+    if group_id:
+        group_id_cache[event.source.user_id] = group_id
+    if text == 'ランキング' and group_id:
+        msg      = hc_manager.get_ranking_message(group_id)
+        liff_url = f"https://liff.line.me/{LIFF_ID}?groupId={group_id}"
+        msg2     = f"スコア入力はこちら：{liff_url}"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
+        line_bot_api.push_message(group_id, TextSendMessage(text=msg2))
+
+
 @handler.add(MemberJoinedEvent)
 def handle_member_join(event):
     group_id = event.source.group_id
     for member in event.joined.members:
-        profile  = line_bot_api.get_group_member_profile(group_id, member.user_id)
-        welcome  = (
+        profile = line_bot_api.get_group_member_profile(group_id, member.user_id)
+        welcome = (
             f"🏌️ {profile.display_name}さん、ゴルフ部へようこそ！\n\n"
             f"スコアを入力するにはメニューの「スコア入力」ボタンをタップしてください。\n"
             f"初回入力時に自動登録されます。"
         )
         line_bot_api.push_message(group_id, TextSendMessage(text=welcome))
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
