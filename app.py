@@ -52,6 +52,9 @@ def submit_score():
     ]
     line_bot_api.push_message(group_id, messages)
     return jsonify({'status': 'ok'})
+@app.route('/')
+def health():
+    return 'OK', 200
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
